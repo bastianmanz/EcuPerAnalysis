@@ -1,0 +1,47 @@
+###PROGRAMA PARA REALIZAR CONTROL DE DATOS OBSERVADOS###
+
+library(xts)
+
+#abrir la informacion a divel diario de las estaciones de INAMHI
+inamhi_dia<-read.csv('Pdia_INAMHI.csv', skip=2, header=T)
+
+#obtener el valor maximo diario de precipitacion para cada mes de informacion disponible
+pdm<-cbind(as.character(inamhi_dia$codigo),inamhi_dia$mes,apply(inamhi_dia[,4:length(inamhi_dia)],1,function(x) max(x,na.rm=T)))
+colnames(pdm)<-c('codigo','mes','pdia')
+pdm<-as.data.frame(pdm)
+
+#para resumir en un data frame el valor máximo diario de cada mes de cada estacion
+valores<-as.data.frame(matrix(ncol=13))
+colnames(valores)<-c('codigo',1:12)
+
+est_depurar<-substring(list.files(pattern='FM'),2,6)
+
+for (i in 1:length(est_depurar)){
+  prueba<-subset(pdm,pdm$codigo==est_depurar[i])
+  prue<-as.data.frame(tapply(as.numeric(as.character(prueba$pdia)),prueba$mes, function(x) max(x,na.rm=T)))
+  prue<-prue[c(2,7,8,9,10,11,12,13,14,3,4,5),]
+  prue<-c(est_depurar[i],prue)
+  valores<-rbind(valores,prue)
+}
+valores<-valores[-1,]
+Pmax_dia<-cbind(valores$codigo,as.data.frame(matrix(as.numeric(as.matrix(valores[,2:13])),ncol=12)))
+Pmax_dia<-cbind(Pmax_dia,rowSums(Pmax_dia[,2:13]))
+
+Pmax_diaria<-Pmax_dia[,2:13]
+
+##comparar los valores horarios con los máximos diarios, si el horario supera al diario reemplazarlo por NA
+for (j in 1:length(est_depurar)){
+  b<-data.frame()
+  a<-read.csv(list.files(pattern='FM')[j])
+  a$Fecha<-as.POSIXct(a$Fecha, tz='America/Bogota')
+  for (k in 1:12){
+    temporal<-subset(a,as.numeric(format(a$Fecha,"%m"))==k)
+    temporal$mm[temporal$mm>Pmax_diaria[j,k]]<-NA
+    b<-rbind(b,temporal)
+  }
+  c<-zoo(b$mm,b$Fecha)
+  #reemplazar el archivo .csv si se realizo algun cambio
+  if (sum(is.na(a$mm))==!sum(is.na(b$mm))){
+    write.csv(c,paste('F',est_depurar[j],'.csv',sep=''),row.names=F)
+  }
+}
