@@ -40,6 +40,8 @@ for (j in 1:length(est_depurar)){
     b<-rbind(b,temporal)
   }
   c<-zoo(b$mm,b$Fecha)
+  c<-cbind(index(c),as.data.frame(c))
+  colnames(c)<-c('Fecha','mm')
   #reemplazar el archivo .csv si se realizo algun cambio
   if (sum(is.na(a$mm))==!sum(is.na(b$mm))){
     write.csv(c,paste('F',est_depurar[j],'.csv',sep=''),row.names=F)
