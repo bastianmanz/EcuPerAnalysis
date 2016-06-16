@@ -1,5 +1,8 @@
 ###PROGRAMA PARA REALIZAR CONTROL DE DATOS OBSERVADOS###
 ###CON EL METODO DE EXTREME VALUES CHECK (SHEN 2010)###
+rm(list=ls())
+gc()
+
 library(xts)
 
 ###Estaciones Ecuador###
@@ -32,9 +35,17 @@ for (i in 1:length(est_depurar)){
 }
 valores<-valores[-1,]
 Pmax_dia<-cbind(valores$codigo,as.data.frame(matrix(as.numeric(as.matrix(valores[,2:13])),ncol=12)))
-Pmax_dia<-cbind(Pmax_dia,rowSums(Pmax_dia[,2:13]))
+#Pmax_dia<-cbind(Pmax_dia,rowSums(Pmax_dia[,2:13])) #revision visual con isoyetas
 
-##comparar los valores horarios con los máximos diarios, si el horario supera al diario reemplazarlo por NA
+#incuir manualmente para estaciones con NA los valores de una estacion cercana que se conozca su comportamiento
+Pmax_dia[44,2:13]<-Pmax_dia[43,2:13]
+Pmax_dia[51,2:13]<-Pmax_dia[11,2:13]
+Pmax_dia[52,2:13]<-Pmax_dia[11,2:13]
+Pmax_dia[53,2:13]<-Pmax_dia[11,2:13]
+Pmax_dia[48,2:13]<-Pmax_dia[28,2:13]
+Pmax_dia[50,2:13]<-Pmax_dia[28,2:13]
+
+##comparar los valores horarios con los máximos diarios, si el horario supera al maximo diario reemplazarlo por NA
 #elaborar una tabla donde se resume el porcentaje de datos rechazados
 tabla_resumen<-data.frame(est_depurar,NA)
 colnames(tabla_resumen)<-c('estacion', '%rejected')
@@ -53,7 +64,7 @@ for (j in 1:length(est_depurar)){
   #reemplazar el archivo .csv si se realizo algun cambio
   if (sum(is.na(a$mm))!=sum(is.na(b$mm))){
     write.csv(c,paste('F',est_depurar[j],'.csv',sep=''),row.names=F)
- }
+  }
   #aumentar un resumen de porcentaje de cambios
   tabla_resumen[j,2]<-round((sum(is.na(b$mm))-sum(is.na(a$mm)))/nrow(a)*100,2)
 }
@@ -61,6 +72,8 @@ for (j in 1:length(est_depurar)){
 #write.csv(tabla_resumen,'tabla_resumen.csv',row.names=F)
 
 ###Estaciones Peru###
+rm(list=ls())
+gc()
 
 #abrir la informacion a divel diario de las estaciones de SENAMHI
 senamhi_dia<-read.csv('Pdia_SENAMHI.csv', header=T)
@@ -101,7 +114,7 @@ for (i in 1:nrow(valores)){
   }
 }
 
-##comparar los valores horarios con los máximos diarios, si el horario supera al diario reemplazarlo por NA
+##comparar los valores horarios con los máximos diarios, si el horario supera al maximo diario reemplazarlo por NA
 #elaborar una tabla donde se resume el porcentaje de datos rechazados
 
 tabla_resumen_senamhi<-data.frame(valores[,1],NA)
@@ -132,7 +145,7 @@ for (j in 1:nrow(valores)){
     b<-rbind(b,c)
   }
   f<-cbind(f,b)
-
+  
   #aumentar un resumen de porcentaje de cambios
   tabla_resumen_senamhi[j,2]<-round((sum(is.na(b))-sum(is.na(horarios_senamhi[,a])))/nrow(horarios_senamhi)*100,2)
 }
@@ -140,8 +153,10 @@ for (j in 1:nrow(valores)){
 #write.csv(tabla_resumen_senamhi,'tabla_resumen_senamhi.csv',row.names=F)
 
 #data frame Fechas y valores diarios de precipitacion corregidos
+d<-horarios_senamhi[,1]
 g<-cbind(d,f)
 g<-g[,-2]
+colnames(g)[1]<-'Fecha'
 
 #para ordernar las fechas se transforma a zoo
 e<-zoo(g[,2:ncol(g)],as.POSIXct(g[,1]))
@@ -155,7 +170,7 @@ horarios_senamhi_final1<-horarios_senamhi_final[,order(match(colnames(horarios_s
 #reemplazar el archivo .csv si se realizo algun cambio
 #write.csv(horarios_senamhi_final1,"DatosHorarios-Peru.csv",row.names=F)
 
-
+###PROGRAMA PARA REALIZAR gauges.RData###
 # Scripts (online) GPM evaluation Ecuador-Peru
 
 rm(list=ls())
@@ -171,7 +186,7 @@ library(gstat)
 ##################################################
 ## Combine (Merge) all Ecu. stns from .csv files #
 ##################################################
-#setwd("C:/Bastian/GPM/publication_ecu_peru/procesados/")
+
 gauges <- list()
 
 # crear un "dummy" para anadir los series de tiempo
@@ -214,7 +229,7 @@ for(i in 1:length(stns_ecu)){
   
   # check que no hay fechas duplicadas
   #   print(length(gauge_i) - length(unique(index(gauge_i))))
- 
+  
   ecu_z <- merge(ecu_z, gauge_i)
   rm(gauge_i)
 }
@@ -238,6 +253,7 @@ active_stns <- rep(NA,length(colnames(gauges$hr)))
 for(i in 1:length(colnames(gauges$hr))){
   active_stns[i] <- which(as.character(sp_data$Estacion)==colnames(gauges$hr)[i])
 }
+
 gauges$sp <- sp_data[active_stns,]
 coordinates(gauges$sp) <- ~longitud + latitud
 proj4string(gauges$sp) <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")
@@ -364,12 +380,12 @@ gauges$hr<-gauges$hr[,-delete]
 
 # 3hrs
 ind_3hrs <- strptime("1970-01-01", "%Y-%m-%d", tz="UTC") + ceiling(as.numeric(index(gauges$hr))/(3*60*60))*(3*60*60)
-gauges$hr3 <- aggregate(gauges$hr,ind_3hrs,sum)
+gauges$hr3 <- aggregate(gauges$hr,ind_3hrs,function(x) round(sum(x)/3,2))
 index(gauges$hr3) <- index(gauges$hr3)-(90*60) # centrar la fecha (-90 min)
 
 # daily
 ind_days <- strptime("1970-01-01", "%Y-%m-%d", tz="UTC") + ceiling(as.numeric(index(gauges$hr))/(24*60*60))*(24*60*60)
-gauges$d <- aggregate(gauges$hr,ind_days,sum)
+gauges$d <- aggregate(gauges$hr,ind_days,function(x) round(sum(x)/24,2))
 index(gauges$d) <- index(gauges$d)-(12*60*60) # centrar la fecha (-12 hrs)
 
 #save(gauges,file="gauges.RData")
