@@ -13,7 +13,7 @@ library(gstat)
 ##################################################
 ## Combine (Merge) all Ecu. stns from .csv files #
 ##################################################
-setwd("C:/Bastian/GPM/publication_ecu_peru/procesados/")
+#setwd("C:/Bastian/GPM/publication_ecu_peru/procesados/")
 gauges <- list()
 
 # crear un "dummy" para anadir los series de tiempo
@@ -76,10 +76,10 @@ index(ecu_z) <- index(ecu_z)-(30*60)
 gauges$hr <- ecu_z
 
 # P23, i.e. gauge 64, sp data missing, hence remove
-gauges$hr <- gauges$hr[,-64]
+#gauges$hr <- gauges$hr[,-64]
 
 # generate spatial information
-sp_data <- read.csv("total_estaciones.csv",header=T)
+sp_data <- read.csv("total_estaciones_20160412.csv",header=T)
 active_stns <- rep(NA,length(colnames(gauges$hr)))
 for(i in 1:length(colnames(gauges$hr))){
   active_stns[i] <- which(as.character(sp_data$Estacion)==colnames(gauges$hr)[i])
@@ -92,7 +92,7 @@ proj4string(gauges$sp) <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")
 # Load IMHEA records, convert to hourly and merge #
 ###################################################
 
-imhea <- read.csv("iMHEA_30min_20160129.csv",header=F)
+imhea <- read.csv("iMHEA_30min_TB_withgaps.csv",header=F)
 
 # extraer informacion espacial
 imhea_sp <- as.data.frame(t(imhea[1:4,2:ncol(imhea)]))
@@ -107,7 +107,7 @@ proj4string(imhea_sp) <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")
 ## extraer informacion temporal y convertir en un objeto de series de tiempo ("zoo" y "xts")
 imhea_data <- imhea[5:nrow(imhea),2:ncol(imhea)]
 imhea_data <- apply(imhea_data,2,function(x) as.numeric(x))
-imhea_z <- zoo(imhea_data,as.POSIXct(as.character(imhea[5:nrow(imhea),1]),tz="America/Bogota"))
+imhea_z <- zoo(imhea_data,as.POSIXct(as.character(imhea[5:nrow(imhea),1]),format= "%d/%m/%Y %H:%M",tz="America/Bogota"))
 
 # elegir solo el periodo 2014-04-01 hasta 2015-08-31
 start <- which(index(imhea_z)==as.POSIXct("2014-04-01 00:00:00",tz="America/Bogota"))
@@ -116,6 +116,7 @@ imhea_z <- imhea_z[start:end,]
 
 imhea_index_hrly <- strptime("1970-01-01 00:00:00", "%Y-%m-%d %H:%M:%S", tz="America/Bogota") + ceiling(as.numeric(index(imhea_z))/(60*60))*(60*60)
 imhea_hrly <- aggregate(imhea_z,imhea_index_hrly,sum)
+index(imhea_hrly)<-as.POSIXct(format(time(imhea_hrly)),tz='UTC')
 
 colnames(imhea_hrly) <- imhea_sp@data$estacion
 
